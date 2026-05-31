@@ -14,33 +14,30 @@
 <div class="game-container">
     <div class="header">
         <div class="lvl">STAGE <span id="level-num">1</span></div>
-        <div class="hp-bar-bg"><div id="hp-fill" class="hp-fill"></div></div>
-        <div class="progress-container"><div id="prog-fill" class="progress-fill"></div></div>
+        <div class="hp-bar-container">
+            <div id="hp-fill" class="hp-fill"></div>
+        </div>
+        <div class="score-display">SCORE: <span id="score-text">0</span></div>
     </div>
 
     <div id="viewport" class="viewport">
-        <div class="stats">SCORE: <span id="score-text">0</span></div>
         <div id="glacier" class="glacier"></div>
 
         <div id="start-screen" class="overlay">
-            <div class="content-box">
-                <h1 class="neon-text">GLACIER DEFENDER</h1>
-                <p>블랙카본을 클릭해서 빙하를 지키세요!</p>
-                <input type="text" id="user-name" placeholder="닉네임 입력">
-                <button onclick="startGame()">MISSION START</button>
-            </div>
+            <h1 class="title">GLACIER DEFENDER</h1>
+            <p class="subtitle">블랙카본으로부터 빙하를 지켜주세요!</p>
+            <input type="text" id="user-name" placeholder="닉네임 입력" maxlength="10">
+            <button class="btn-start" onclick="startGame()">MISSION START</button>
         </div>
 
         <div id="result-screen" class="overlay" style="display:none;">
-            <div class="content-box">
-                <h2>MISSION OVER</h2>
-                <div id="final-score" class="final-score">0</div>
-                <div class="ranking-box">
-                    <small>GLOBAL TOP 5</small>
-                    <div id="rank-list">로딩 중...</div>
-                </div>
-                <button onclick="location.reload()">RETRY</button>
+            <h2>MISSION OVER</h2>
+            <div id="final-score" class="final-score">0</div>
+            <div class="rank-container">
+                <small>TOP RANKINGS</small>
+                <div id="rank-list">로딩 중...</div>
             </div>
+            <button class="btn-retry" onclick="location.reload()">RETRY</button>
         </div>
     </div>
 </div>
