@@ -1,124 +1,143 @@
-const firebaseConfig = {
-    apiKey: "AIzaSyCGalYZ5WTs4xZiXpUU8XKa9aDZchMzFCM",
-    authDomain: "glacier-ranking.firebaseapp.com",
-    projectId: "glacier-ranking",
-    storageBucket: "glacier-ranking.firebasestorage.app",
-    messagingSenderId: "15457584160",
-    appId: "1:15457584160:web:d4c7090f026e80b61ca845"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const vp = document.getElementById('viewport');
+const sh = document.getElementById('shield');
+const hf = document.getElementById('hp-fill');
+const sc = document.getElementById('score');
+const al = document.getElementById('albedo');
+const lv = document.getElementById('level-num');
+const gl = document.getElementById('glacier');
+const ts = document.getElementById('toast');
 
-let game = { hp: 100, score: 0, level: 1, speed: 2.5, rate: 1200, isOver: false, name: "" };
-let spawnTimer;
-
-window.onload = () => {
-    const saved = localStorage.getItem('glacier-nickname');
-    if(saved) document.getElementById('user-name').value = saved;
-    showRanks();
-};
+let game = { score: 0, hp: 100, level: 1, active: false, speed: 4, rate: 800, name: "" };
 
 function startGame() {
-    game.name = document.getElementById('user-name').value || "수호자";
-    localStorage.setItem('glacier-nickname', game.name);
+    const nameInput = document.getElementById('user-name').value.trim();
+    if (!nameInput) { alert("Please enter your name!"); return; }
+    
+    game.name = nameInput;
+    game.active = true;
     document.getElementById('start-screen').style.display = 'none';
+    sh.style.display = 'block';
     
-    // 적 생성 주기 시작
     spawnTimer = setInterval(spawn, game.rate);
-    requestAnimationFrame(animate);
 }
 
+const move = (e) => {
+    if (!game.active) return;
+    const rect = vp.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const x = clientX - rect.left;
+    sh.style.left = Math.max(50, Math.min(rect.width - 50, x)) + 'px';
+};
+vp.addEventListener('mousemove', move);
+vp.addEventListener('touchmove', move, { passive: true });
+
+function refresh() {
+    const r = Math.min(game.score / 1500, 1);
+    vp.style.background = `rgb(${44-r*20}, ${62+r*100}, ${80+r*150})`;
+    const bonus = Math.min(game.score / 50, 20);
+    gl.style.height = (game.hp * 0.35 + bonus) + "%";
+    const p1 = 40 - r*25, p2 = 20 - r*15, p3 = 30 - r*20;
+    gl.style.clipPath = `polygon(0% 100%, 15% ${p1}%, 35% 65%, 50% ${p2}%, 70% 55%, 85% ${p3}%, 100% 100%)`;
+    gl.style.backgroundColor = `hsl(190, 100%, ${Math.min(75+game.score/20, 100)}%)`;
+    al.innerText = Math.min(100, 85 + Math.floor(game.score/50));
+}
+
+let spawnTimer;
 function spawn() {
-    if(game.isOver) return;
-    
-    const enemy = document.createElement('div');
-    enemy.className = 'black-carbon';
-    // 화면 너비에 맞춰 랜덤 위치 생성
-    const maxX = window.innerWidth - 60;
-    enemy.style.left = Math.random() * maxX + 'px';
-    enemy.style.top = '-60px';
-    
-    // [중요] 클릭 및 터치 이벤트 둘 다 대응
-    const handleHit = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if(game.isOver) return;
-        
-        game.score += 10;
-        document.getElementById('score-text').innerText = game.score;
-        enemy.remove();
-        
-        // 100점마다 난이도 상승
-        if(game.score > 0 && game.score % 100 === 0) {
-            game.level++;
-            game.speed += 0.4;
-            document.getElementById('level-num').innerText = game.level;
-        }
-    };
+    if (!game.active) return;
+    const p = document.createElement('div');
+    p.className = 'drop';
+    p.style.left = Math.random() * (vp.clientWidth - 15) + 'px';
+    p.style.top = '0px';
+    vp.appendChild(p);
 
-    enemy.addEventListener('mousedown', handleHit);
-    enemy.addEventListener('touchstart', handleHit);
-    
-    document.getElementById('viewport').appendChild(enemy);
+    let y = 0;
+    let drift = (Math.random() - 0.5) * game.level; 
+
+    let moveInterval = setInterval(() => {
+        if (!game.active) { clearInterval(moveInterval); p.remove(); return; }
+        y += game.speed;
+        p.style.top = y + 'px';
+        p.style.left = (parseFloat(p.style.left) + drift) + 'px';
+
+        const sRect = sh.getBoundingClientRect();
+        const pRect = p.getBoundingClientRect();
+
+        if (pRect.bottom >= sRect.top && pRect.top <= sRect.bottom &&
+            pRect.right >= sRect.left && pRect.left <= sRect.right) {
+            clearInterval(moveInterval); p.remove();
+            hitSuccess();
+        } else if (y > vp.clientHeight - 40) {
+            clearInterval(moveInterval); p.remove();
+            hitFail();
+        }
+    }, 20);
 }
 
-function animate() {
-    if(game.isOver) return;
-    
-    const enemies = document.getElementsByClassName('black-carbon');
-    const glacierTop = document.getElementById('glacier').offsetTop;
-
-    for(let i = enemies.length - 1; i >= 0; i--) {
-        let enemy = enemies[i];
-        let top = parseFloat(enemy.style.top) + game.speed;
-        enemy.style.top = top + 'px';
-
-        // 빙하에 충돌했을 때
-        if(top + 50 > glacierTop) {
-            enemy.remove();
-            game.hp -= 20; // 체력 차감
-            document.getElementById('hp-fill').style.width = Math.max(0, game.hp) + "%";
-            
-            if(game.hp <= 0) endGame();
-        }
+function hitSuccess() {
+    game.score += (10 * game.level);
+    sc.innerText = game.score;
+    if (game.hp < 100) { game.hp = Math.min(100, game.hp + 0.5); hf.style.width = game.hp + "%"; }
+    refresh();
+    if (game.score > game.level * 300) {
+        game.level++;
+        game.speed += 0.8;
+        game.rate = Math.max(200, game.rate - 100);
+        lv.innerText = game.level;
+        clearInterval(spawnTimer);
+        spawnTimer = setInterval(spawn, game.rate);
+        ts.innerText = `LEVEL UP: STAGE ${game.level} 🚀`;
+        ts.style.top = "15px"; setTimeout(()=>ts.style.top="-50px", 2000);
     }
-    requestAnimationFrame(animate);
 }
 
-async function endGame() {
-    if(game.isOver) return;
-    game.isOver = true;
+function hitFail() {
+    game.hp -= 8;
+    hf.style.width = Math.max(0, game.hp) + "%";
+    refresh();
+    if (game.hp <= 0) endGame();
+}
+
+function endGame() {
+    game.active = false;
     clearInterval(spawnTimer);
     
-    document.getElementById('result-screen').style.display = 'flex';
-    document.getElementById('final-score').innerText = game.score;
+    const resultScreen = document.getElementById('result-screen');
+    const title = document.getElementById('result-title');
+    const desc = document.getElementById('result-desc');
     
-    try {
-        // 랭킹 저장 (숫자 타입으로 저장)
-        await db.collection("rankings").add({
-            n: game.name,
-            s: Number(game.score),
-            t: Date.now()
-        });
-        showRanks();
-    } catch(e) { console.error(e); }
+    resultScreen.style.display = 'flex';
+    document.getElementById('final-score').innerText = game.score;
+
+    if (game.score >= 1500) {
+        title.innerText = "MISSION PERFECT! 💎";
+        desc.innerText = "You have successfully protected the glacier! You are a true environmental expert.";
+    } else if (game.score >= 700) {
+        title.innerText = "MISSION SUCCESS! 🏔️";
+        desc.innerText = "Great job! You saved the glacier from Black Carbon. Keep up the good work!";
+    } else {
+        title.innerText = "MISSION FAILED... 😷";
+        desc.innerText = "The glacier is melting rapidly. Would you like to try again to save our planet?";
+    }
+
+    saveRank();
+    showRanks();
 }
 
-async function showRanks() {
-    try {
-        const snap = await db.collection("rankings").orderBy("s", "desc").limit(5).get();
-        const listDiv = document.getElementById('rank-list');
-        if(snap.empty) {
-            listDiv.innerHTML = "기록이 없습니다.";
-            return;
-        }
-        listDiv.innerHTML = snap.docs.map((doc, i) => `
-            <div class="rk-item">
-                <span>${i+1}. ${doc.data().n}</span>
-                <b>${doc.data().s}</b>
-            </div>
-        `).join('');
-    } catch(e) { 
-        document.getElementById('rank-list').innerHTML = "로딩 실패";
-    }
+function saveRank() {
+    let rks = JSON.parse(localStorage.getItem('ggc_final_rk_en') || '[]');
+    rks.push({n: game.name, s: game.score});
+    rks.sort((a,b) => b.s - a.s);
+    localStorage.setItem('ggc_final_rk_en', JSON.stringify(rks.slice(0, 5)));
+}
+
+function showRanks() {
+    const rks = JSON.parse(localStorage.getItem('ggc_final_rk_en') || '[]');
+    const list = document.getElementById('rank-list');
+    list.innerHTML = rks.map((r, i) => `
+        <div class="rk-item">
+            <span>${i+1}. ${r.n}</span>
+            <b style="color:#00ffcc">${r.s}</b>
+        </div>
+    `).join('') || "No records yet.";
 }
